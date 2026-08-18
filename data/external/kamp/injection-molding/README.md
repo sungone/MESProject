@@ -19,12 +19,19 @@ KAMP는 제조 특화 데이터셋과 AI 분석 도구를 제공하는 플랫폼
 injection-molding/
 ├─ cycle-records/   # 식별자·시간·제품·설비·공정값이 있는 이력 데이터
 ├─ model-ready/     # 일부 식별 컬럼이 제거되고 모델 입력 형태로 가공된 데이터
+├─ reference/       # KAMP 원문 가이드북
 ├─ manifest.csv     # 파일별 크기, 행·열 수, 체크섬, 라벨 설명
 └─ README.md
 ```
 
 원본 다운로드 파일은 내용 변경 없이 복사했고, 파일명의 다운로드 중복 표기 `(1)`만 제거했다.
 무결성 검증에는 `manifest.csv`의 SHA-256을 사용한다.
+
+## 원문 가이드북
+
+- `reference/guidebook_molding.pdf`: KAMP 사출성형기 AI 데이터셋 가이드북
+- 원본 파일명: `04. Guidebook_Molding.pdf`
+- 파일 내용은 변경하지 않고 프로젝트용 파일명만 정규화했다.
 
 ## 핵심 데이터 품질 결과
 

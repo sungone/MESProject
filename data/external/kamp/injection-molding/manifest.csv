@@ -7,3 +7,4 @@ model-ready,model-ready/moldset_labeled_rg3.csv,1182,26,551941,14AAB21476EEA02C8
 model-ready,model-ready/moldset_unlabeled_cn7.csv,35239,25,16643923,110A2D408D6CB8002CAF26F50C06D06E42998E067E708788A3E37E9D1769B978,없음,"표준화된 CN7 추론용 특징"
 model-ready,model-ready/moldset_unlabeled_rg3.csv,35941,25,16984495,EF9B30014CE4D6671A72F5A4C3F286802B71FF08D52F9D6A551A3F81E6AF8C9C,없음,"표준화된 RG3 추론용 특징"
 model-ready,model-ready/supervised_label_cn7.csv,6736,26,1812288,9B1FCE387A94A6EEB8CA4E281ADA626A5F325A5F177D614D53876D39904C073B,PassOrFail 0/1,"비표준화 CN7 지도학습 특징; 식별·시간·제품 컬럼 제거됨"
+reference,reference/guidebook_molding.pdf,,,33461181,7B02187B2394EE20EFFECBD21EA33ECF90E78BF04FCCFFE5601824789EA6A43E,,"KAMP 사출성형기 AI 데이터셋 가이드북 원본"
