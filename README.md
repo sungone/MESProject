@@ -10,3 +10,8 @@
 - 생산 실적과 핵심 지표 시각화
 
 프로젝트 구조와 실행 방법은 구현이 진행되는 대로 문서화합니다.
+
+## 데이터셋
+
+KAMP 사출성형기 데이터셋을 로컬 개발 데이터로 사용합니다. 파일 구성과 품질 주의사항은
+[`data/external/kamp/injection-molding/README.md`](data/external/kamp/injection-molding/README.md)를 참고합니다.

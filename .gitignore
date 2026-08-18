@@ -23,3 +23,7 @@ venv/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local copies of large external KAMP datasets
+data/external/kamp/injection-molding/cycle-records/*.csv
+data/external/kamp/injection-molding/model-ready/*.csv

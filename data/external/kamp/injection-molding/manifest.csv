@@ -1,0 +1,9 @@
+group,file,rows,columns,bytes,sha256,label,notes
+cycle-records,cycle-records/labeled_data.csv,7996,45,4582069,E8D375C8E0C2CDFC309BAF01AC2203FC2EDB6E9728E836119042F9670CD46B51,PassOrFail Y/N,"공정 이력과 품질 결과; Reason은 불량 행에만 존재"
+cycle-records,cycle-records/moldset_labeled.csv,2607,47,1533147,D19E24F1E9C2764B1BA20FBCE042058D009D095930BBAE37895F2D2F352158CF,PassOrFail 0/1,"S14 설비의 CN7/RG3 부분집합; 0=양품 1=불량"
+cycle-records,cycle-records/unlabeled_data.csv,795315,46,225647622,A2A653B34833A8A01699E6E63D5D280A0C3AA82A38004C8AF6BE132E374AA8F3,없음,"2020-01-02~2020-10-23 다설비 공정 이력; ERR_FACT_QTY 의미 확인 필요"
+model-ready,model-ready/moldset_labeled_cn7.csv,1211,26,561704,F870B0C259297F20D503F2E2739966553E5DB5EF1DEB0CC7513EEFA4BBFA2753,PassOrFail 0/1,"표준화된 CN7 특징; 식별·시간·제품 컬럼 제거됨"
+model-ready,model-ready/moldset_labeled_rg3.csv,1182,26,551941,14AAB21476EEA02C823CCB00F82800040280D805DBCE5A3EB7C11B176A9E5AA4,PassOrFail 0/1,"표준화된 RG3 특징; 식별·시간·제품 컬럼 제거됨"
+model-ready,model-ready/moldset_unlabeled_cn7.csv,35239,25,16643923,110A2D408D6CB8002CAF26F50C06D06E42998E067E708788A3E37E9D1769B978,없음,"표준화된 CN7 추론용 특징"
+model-ready,model-ready/moldset_unlabeled_rg3.csv,35941,25,16984495,EF9B30014CE4D6671A72F5A4C3F286802B71FF08D52F9D6A551A3F81E6AF8C9C,없음,"표준화된 RG3 추론용 특징"
+model-ready,model-ready/supervised_label_cn7.csv,6736,26,1812288,9B1FCE387A94A6EEB8CA4E281ADA626A5F325A5F177D614D53876D39904C073B,PassOrFail 0/1,"비표준화 CN7 지도학습 특징; 식별·시간·제품 컬럼 제거됨"
