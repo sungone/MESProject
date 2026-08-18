@@ -10,8 +10,6 @@ KAMP는 제조 특화 데이터셋과 AI 분석 도구를 제공하는 플랫폼
 자동차 앞 유리 사이드 몰딩 제조공정의 사출성형기 센서·품질 데이터라고 설명한다.
 
 - KAMP: https://www.kamp-ai.kr/
-- 데이터 필드와 활용 사례를 설명한 연구: https://doi.org/10.5762/KAIS.2021.22.10.411
-- KAMP 교육과정의 사출성형기 데이터셋 가이드 안내: https://translator.kamp-ai.kr/course/104
 
 ## 폴더 구조
 

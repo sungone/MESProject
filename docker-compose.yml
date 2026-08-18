@@ -1,0 +1,45 @@
+name: mes-virtual-edge
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.1.2-alpine
+    container_name: mes-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./edge/mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./edge/mosquitto/data:/mosquitto/data
+      - ./edge/mosquitto/log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t edge/healthcheck -m ping >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - mes-edge
+
+  node-red:
+    image: nodered/node-red:5.0.1
+    container_name: mes-node-red
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    ports:
+      - "1880:1880"
+    environment:
+      TZ: Asia/Seoul
+      FLOWS: flows.json
+      NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-mes-edge-dev-secret-change-me}
+    volumes:
+      - ./edge/node-red:/data
+      - ./data/external/kamp/injection-molding:/opt/kamp:ro
+    networks:
+      - mes-edge
+
+networks:
+  mes-edge:
+    name: mes-edge
+    driver: bridge

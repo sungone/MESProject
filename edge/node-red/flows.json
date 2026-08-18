@@ -1,0 +1,310 @@
+[
+  {
+    "id": "tab-kamp-edge",
+    "type": "tab",
+    "label": "KAMP 사출 가상 PLC",
+    "disabled": false,
+    "info": "KAMP cycle-records CSV를 Shot 단위로 묶어 Mosquitto에 발행합니다. 기본 파일은 S14 650톤-우진2호기의 CN7/RG3 LH/RH 데이터입니다."
+  },
+  {
+    "id": "comment-replay",
+    "type": "comment",
+    "z": "tab-kamp-edge",
+    "name": "1. CSV 로드 → 동일 Shot의 LH/RH 그룹화 → 1초 간격 재생",
+    "info": "원본 CSV는 /opt/kamp에 읽기 전용으로 마운트됩니다.",
+    "x": 310,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "inject-start",
+    "type": "inject",
+    "z": "tab-kamp-edge",
+    "name": "▶ CSV 재생 시작",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 130,
+    "y": 100,
+    "wires": [
+      [
+        "file-kamp-csv"
+      ]
+    ]
+  },
+  {
+    "id": "file-kamp-csv",
+    "type": "file in",
+    "z": "tab-kamp-edge",
+    "name": "moldset_labeled.csv 읽기",
+    "filename": "/opt/kamp/cycle-records/moldset_labeled.csv",
+    "filenameType": "str",
+    "format": "utf8",
+    "chunk": false,
+    "sendError": false,
+    "encoding": "none",
+    "allProps": false,
+    "x": 370,
+    "y": 100,
+    "wires": [
+      [
+        "csv-parse"
+      ]
+    ]
+  },
+  {
+    "id": "csv-parse",
+    "type": "csv",
+    "z": "tab-kamp-edge",
+    "name": "CSV → 객체 배열",
+    "sep": ",",
+    "hdrin": true,
+    "hdrout": false,
+    "multi": "mult",
+    "ret": "\\n",
+    "temp": "",
+    "skip": "0",
+    "strings": true,
+    "include_empty_strings": false,
+    "include_null_values": false,
+    "x": 600,
+    "y": 100,
+    "wires": [
+      [
+        "fn-group-shots"
+      ]
+    ]
+  },
+  {
+    "id": "fn-group-shots",
+    "type": "function",
+    "z": "tab-kamp-edge",
+    "name": "LH/RH를 1 Shot으로 그룹화",
+    "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nconst groups = new Map();\n\nfor (const row of rows) {\n    const equipmentId = String(row.EQUIP_CD || 'UNKNOWN').trim();\n    const sourceTime = String(row.TimeStamp || '').trim();\n\n    if (!sourceTime || equipmentId === 'UNKNOWN') {\n        continue;\n    }\n\n    // KAMP의 LH/RH는 제품 시리얼이 서로 다르지만 같은 설비·시각이면 동일 Shot이다.\n    const key = `${equipmentId}|${sourceTime}`;\n    if (!groups.has(key)) {\n        groups.set(key, []);\n    }\n    groups.get(key).push(row);\n}\n\nconst shotMessages = Array.from(groups.entries()).map(([sourceKey, shotRows]) => ({\n    payload: shotRows,\n    sourceKey\n}));\n\nnode.status({ fill: 'green', shape: 'dot', text: `${shotMessages.length} shots queued` });\nreturn [shotMessages];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 850,
+    "y": 100,
+    "wires": [
+      [
+        "delay-replay"
+      ]
+    ]
+  },
+  {
+    "id": "delay-replay",
+    "type": "delay",
+    "z": "tab-kamp-edge",
+    "name": "1 Shot / 1초",
+    "pauseType": "rate",
+    "timeout": "5",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 1090,
+    "y": 100,
+    "wires": [
+      [
+        "fn-build-events"
+      ]
+    ]
+  },
+  {
+    "id": "inject-stop",
+    "type": "inject",
+    "z": "tab-kamp-edge",
+    "name": "■ 대기열 정지/비우기",
+    "props": [
+      {
+        "p": "reset",
+        "v": "true",
+        "vt": "bool"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "x": 860,
+    "y": 160,
+    "wires": [
+      [
+        "delay-replay"
+      ]
+    ]
+  },
+  {
+    "id": "fn-build-events",
+    "type": "function",
+    "z": "tab-kamp-edge",
+    "name": "가상 PLC 이벤트 생성",
+    "func": "const rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (rows.length === 0) {\n    return null;\n}\n\nconst first = rows[0];\nconst equipmentId = String(first.EQUIP_CD || 'UNKNOWN').trim();\nconst equipmentName = String(first.EQUIP_NAME || '').trim();\nconst sourceEventTime = String(first.TimeStamp || '').trim();\nconst serial = String(first.PART_FACT_SERIAL || '').trim();\nconst replayedAt = new Date().toISOString();\nconst cycleKey = `${equipmentId}-${sourceEventTime}-${serial}`.replace(/[^A-Za-z0-9_-]/g, '');\nconst cycleId = `CYCLE-${cycleKey}`;\nconst baseTopic = `factory/injection/${equipmentId}`;\n\nconst numberOrNull = (value) => {\n    if (value === undefined || value === null || String(value).trim() === '') return null;\n    const parsed = Number(value);\n    return Number.isFinite(parsed) ? parsed : null;\n};\n\nconst temperatureOrNull = (value) => {\n    const parsed = numberOrNull(value);\n    return parsed === 0 ? null : parsed;\n};\n\nconst qualityResult = (value) => {\n    const normalized = String(value ?? '').trim().toUpperCase();\n    if (normalized === 'Y' || normalized === '0') return 'PASS';\n    if (normalized === 'N' || normalized === '1') return 'FAIL';\n    return 'UNKNOWN';\n};\n\nconst sideOf = (name) => {\n    const match = String(name || '').toUpperCase().match(/(?:^|[ ,'])\\b(LH|RH)\\b/);\n    return match ? match[1] : 'SINGLE';\n};\n\nconst outputs = rows.map((row, index) => {\n    const productName = String(row.PART_NAME || '').trim();\n    const side = sideOf(productName);\n    const result = qualityResult(row.PassOrFail);\n    return {\n        productInstanceId: `${cycleId}-${side}-${index + 1}`,\n        cavity: side,\n        partNo: String(row.PART_NO || '').trim() || null,\n        productName,\n        qualityResult: result,\n        defectReason: result === 'FAIL' ? (String(row.Reason || '').trim() || 'UNSPECIFIED') : null,\n        sourceRecordId: String(row._id || '').trim() || null\n    };\n});\n\nconst goodCount = outputs.filter(item => item.qualityResult === 'PASS').length;\nconst defectCount = outputs.filter(item => item.qualityResult === 'FAIL').length;\n\nconst processSnapshot = {\n    timesSec: {\n        injection: numberOrNull(first.Injection_Time),\n        filling: numberOrNull(first.Filling_Time),\n        plasticizing: numberOrNull(first.Plasticizing_Time),\n        cycle: numberOrNull(first.Cycle_Time),\n        clampClose: numberOrNull(first.Clamp_Close_Time)\n    },\n    positionsMm: {\n        cushion: numberOrNull(first.Cushion_Position),\n        switchOver: numberOrNull(first.Switch_Over_Position),\n        plasticizing: numberOrNull(first.Plasticizing_Position),\n        clampOpen: numberOrNull(first.Clamp_Open_Position)\n    },\n    speeds: {\n        maxInjection: numberOrNull(first.Max_Injection_Speed),\n        maxScrewRpm: numberOrNull(first.Max_Screw_RPM),\n        averageScrewRpm: numberOrNull(first.Average_Screw_RPM)\n    },\n    pressures: {\n        maxInjection: numberOrNull(first.Max_Injection_Pressure),\n        maxSwitchOver: numberOrNull(first.Max_Switch_Over_Pressure),\n        maxBack: numberOrNull(first.Max_Back_Pressure),\n        averageBack: numberOrNull(first.Average_Back_Pressure)\n    },\n    temperaturesCelsius: {\n        barrel: [1,2,3,4,5,6,7].map(i => temperatureOrNull(first[`Barrel_Temperature_${i}`])),\n        hopper: temperatureOrNull(first.Hopper_Temperature),\n        mold: [1,2,3,4,5,6,7,8,9,10,11,12].map(i => temperatureOrNull(first[`Mold_Temperature_${i}`]))\n    }\n};\n\nconst envelope = (eventType, eventId, payload) => ({\n    schemaVersion: '1.0',\n    eventId,\n    eventType,\n    eventTime: replayedAt,\n    sourceEventTime,\n    sourceType: 'KAMP_CSV_REPLAY',\n    simulated: true,\n    equipmentId,\n    equipmentName,\n    payload\n});\n\nconst messages = [\n    {\n        topic: `${baseTopic}/state`,\n        qos: '1',\n        retain: 'true',\n        payload: JSON.stringify(envelope('EQUIPMENT_STATUS', `STATE-${cycleKey}`, {\n            state: 'RUN',\n            activeCycleId: cycleId\n        }))\n    },\n    {\n        topic: `${baseTopic}/telemetry/cycle`,\n        qos: '0',\n        retain: 'false',\n        payload: JSON.stringify(envelope('CYCLE_TELEMETRY_SNAPSHOT', `TELEMETRY-${cycleKey}`, {\n            cycleId,\n            process: processSnapshot\n        }))\n    },\n    {\n        topic: `${baseTopic}/cycle/completed`,\n        qos: '1',\n        retain: 'false',\n        payload: JSON.stringify(envelope('CYCLE_COMPLETED', `CYCLE-EVENT-${cycleKey}`, {\n            cycleId,\n            shotCount: 1,\n            outputCount: outputs.length,\n            goodCount,\n            defectCount,\n            planDate: String(first.PART_FACT_PLAN_DATE || '').trim() || null,\n            serial,\n            productFamily: outputs.map(item => item.productName)\n        }))\n    },\n    ...outputs.map((output, index) => ({\n        topic: `${baseTopic}/quality`,\n        qos: '1',\n        retain: 'false',\n        payload: JSON.stringify(envelope('QUALITY_RESULT_RECORDED', `QUALITY-${cycleKey}-${index + 1}`, {\n            cycleId,\n            ...output\n        }))\n    }))\n];\n\nnode.status({\n    fill: defectCount > 0 ? 'red' : 'green',\n    shape: 'dot',\n    text: `${equipmentId} ${cycleId} / ${goodCount} OK ${defectCount} NG`\n});\nreturn [messages];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1310,
+    "y": 100,
+    "wires": [
+      [
+        "mqtt-out-events",
+        "debug-events"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt-out-events",
+    "type": "mqtt out",
+    "z": "tab-kamp-edge",
+    "name": "Mosquitto로 발행",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "application/json",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "mqtt-broker-edge",
+    "x": 1550,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "debug-events",
+    "type": "debug",
+    "z": "tab-kamp-edge",
+    "name": "발행 이벤트 확인",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1550,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "comment-command",
+    "type": "comment",
+    "z": "tab-kamp-edge",
+    "name": "2. MES 명령 수신 → 가상 PLC 검증 → ACK 발행",
+    "info": "지원 명령: LOAD_WORK_ORDER, LOAD_RECIPE, START, STOP, HOLD, RELEASE, RESET",
+    "x": 290,
+    "y": 260,
+    "wires": []
+  },
+  {
+    "id": "mqtt-in-command",
+    "type": "mqtt in",
+    "z": "tab-kamp-edge",
+    "name": "MES Command 수신",
+    "topic": "factory/injection/+/command",
+    "qos": "1",
+    "datatype": "auto-detect",
+    "broker": "mqtt-broker-edge",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 150,
+    "y": 320,
+    "wires": [
+      [
+        "fn-command-ack"
+      ]
+    ]
+  },
+  {
+    "id": "fn-command-ack",
+    "type": "function",
+    "z": "tab-kamp-edge",
+    "name": "명령 검증 및 ACK 생성",
+    "func": "const supported = new Set([\n    'LOAD_WORK_ORDER',\n    'LOAD_RECIPE',\n    'START',\n    'STOP',\n    'HOLD',\n    'RELEASE',\n    'RESET'\n]);\n\nlet command;\ntry {\n    command = typeof msg.payload === 'string' ? JSON.parse(msg.payload) : msg.payload;\n} catch (error) {\n    command = {};\n}\n\nconst topicParts = String(msg.topic || '').split('/');\nconst equipmentId = topicParts[2] || command.equipmentId || 'UNKNOWN';\nconst commandId = String(command.commandId || `CMD-${Date.now()}`);\nconst commandType = String(command.commandType || '').toUpperCase();\nconst accepted = supported.has(commandType);\nconst now = new Date().toISOString();\n\nif (accepted) {\n    flow.set(`lastCommand:${equipmentId}`, {\n        commandId,\n        commandType,\n        payload: command.payload || {},\n        acknowledgedAt: now\n    });\n}\n\nmsg.topic = `factory/injection/${equipmentId}/command/ack`;\nmsg.qos = '1';\nmsg.retain = 'false';\nmsg.payload = JSON.stringify({\n    schemaVersion: '1.0',\n    eventId: `ACK-${commandId}`,\n    eventType: accepted ? 'COMMAND_ACKNOWLEDGED' : 'COMMAND_REJECTED',\n    eventTime: now,\n    sourceType: 'VIRTUAL_PLC',\n    simulated: true,\n    equipmentId,\n    payload: {\n        commandId,\n        commandType: commandType || null,\n        status: accepted ? 'ACCEPTED' : 'REJECTED',\n        reason: accepted ? null : 'UNSUPPORTED_OR_INVALID_COMMAND'\n    }\n});\n\nnode.status({\n    fill: accepted ? 'green' : 'red',\n    shape: 'dot',\n    text: `${commandType || 'INVALID'} ${accepted ? 'ACK' : 'REJECT'}`\n});\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 410,
+    "y": 320,
+    "wires": [
+      [
+        "mqtt-out-events",
+        "debug-command"
+      ]
+    ]
+  },
+  {
+    "id": "debug-command",
+    "type": "debug",
+    "z": "tab-kamp-edge",
+    "name": "Command ACK 확인",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 670,
+    "y": 380,
+    "wires": []
+  },
+  {
+    "id": "mqtt-broker-edge",
+    "type": "mqtt-broker",
+    "name": "MES Edge Mosquitto",
+    "broker": "mosquitto",
+    "port": "1883",
+    "clientid": "mes-node-red-edge",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "5",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "factory/edge/node-red/availability",
+    "birthQos": "1",
+    "birthPayload": "online",
+    "birthMsg": {},
+    "closeTopic": "factory/edge/node-red/availability",
+    "closeQos": "1",
+    "closePayload": "offline",
+    "closeMsg": {},
+    "willTopic": "factory/edge/node-red/availability",
+    "willQos": "1",
+    "willPayload": "offline",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  }
+]

@@ -28,3 +28,12 @@ Thumbs.db
 data/external/kamp/injection-molding/cycle-records/*.csv
 data/external/kamp/injection-molding/model-ready/*.csv
 data/external/kamp/injection-molding/reference/*.pdf
+
+# Edge runtime data
+edge/mosquitto/data/*
+!edge/mosquitto/data/.gitkeep
+edge/mosquitto/log/*
+!edge/mosquitto/log/.gitkeep
+edge/node-red/.config.*
+edge/node-red/.sessions.json
+edge/node-red/context/
